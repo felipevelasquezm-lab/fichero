@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fichero de Huéspedes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --navy:#122140;
+    --navy-soft:#1F3A63;
+    --blue:#2F6FED;
+    --blue-light:#EAF1FF;
+    --bg:#FFFFFF;
+    --bg-soft:#F6F8FB;
+    --border:#E4E8F0;
+    --ink:#1A2233;
+    --ink-soft:#69728A;
+    --alert:#D64545;
+    --alert-bg:#FCEAEA;
+    --success:#1E9A5A;
+    --success-bg:#E8F7EF;
+    --white:#FFFFFF;
+    --shadow:0 1px 2px rgba(18,33,64,0.05), 0 1px 3px rgba(18,33,64,0.06);
+    --shadow-lift:0 10px 30px rgba(18,33,64,0.14);
+    --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg-soft);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{font-family:'Plus Jakarta Sans',sans-serif;color:var(--navy);}
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  /* ---------- Top bar ---------- */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 28px;
+    background:var(--white);
+    border-bottom:1px solid var(--border);
+  }
+  header .brand{display:flex;align-items:baseline;gap:10px;}
+  header h1{font-size:20px;font-weight:700;margin:0;letter-spacing:-0.2px;}
+  header .brand small{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);letter-spacing:0.5px;text-transform:uppercase;}
+  header .actions{display:flex;gap:10px;align-items:center;}
+  .mode-pill{
+    font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.5px;
+    padding:5px 10px;border-radius:20px;text-transform:uppercase;
+  }
+  .mode-pill.local{background:var(--bg-soft);color:var(--ink-soft);border:1px solid var(--border);}
+  .mode-pill.cloud{background:var(--success-bg);color:var(--success);}
+
+  button, .btn{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;
+    border:none;border-radius:8px;cursor:pointer;padding:9px 16px;
+    transition:transform .12s ease, box-shadow .12s ease, background .15s ease, border-color .15s ease;
+  }
+  button:active{transform:scale(0.97);}
+  .btn-primary{background:var(--navy);color:var(--white);}
+  .btn-primary:hover{background:var(--navy-soft);}
+  .btn-accent{background:var(--blue);color:var(--white);}
+  .btn-accent:hover{background:#2560D6;}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--border);}
+  .btn-ghost:hover{background:var(--bg-soft);}
+  .btn-outline{background:var(--white);color:var(--ink);border:1px solid var(--border);}
+  .btn-outline:hover{border-color:var(--blue);color:var(--blue);}
+  .btn-danger{background:transparent;color:var(--alert);border:1px solid var(--alert);}
+  .btn-danger:hover{background:var(--alert-bg);}
+  .btn-sm{padding:6px 11px;font-size:12.5px;}
+
+  /* ---------- Banner modo local ---------- */
+  .banner{
+    background:var(--blue-light);border-bottom:1px solid var(--border);
+    padding:9px 28px;font-size:13px;color:var(--navy-soft);
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  .banner a{color:var(--blue);font-weight:600;cursor:pointer;text-decoration:underline;}
+
+  /* ---------- Layout ---------- */
+  .layout{display:flex;max-width:1280px;margin:0 auto;min-height:calc(100vh - 64px);}
+  .sidebar{
+    width:340px;flex-shrink:0;border-right:1px solid var(--border);
+    padding:20px 16px;background:var(--white);
+  }
+  .sidebar-head{display:flex;flex-direction:column;gap:9px;margin-bottom:16px;}
+  .btn-add-guest{width:100%;padding:12px;font-size:14px;}
+  .search-wrap{position:relative;}
+  .search-wrap::before{
+    content:"";position:absolute;left:11px;top:50%;transform:translateY(-50%);
+    width:14px;height:14px;border:2px solid var(--ink-soft);border-radius:50%;opacity:0.55;
+  }
+  .search-wrap::after{
+    content:"";position:absolute;left:20px;top:60%;width:6px;height:2px;background:var(--ink-soft);
+    transform:rotate(45deg);opacity:0.55;
+  }
+  .search-box{
+    width:100%;padding:9px 12px 9px 34px;border:1px solid var(--border);border-radius:8px;
+    background:var(--bg-soft);font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink);
+  }
+  .search-box:focus{outline:2px solid var(--blue);outline-offset:1px;background:var(--white);}
+  .sidebar-label{font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.5px;margin:4px 0 -3px;}
+
+  .card-list{display:flex;flex-direction:column;gap:8px;}
+  .guest-card{
+    position:relative;display:flex;gap:11px;align-items:center;
+    background:var(--white);border:1px solid var(--border);
+    border-radius:10px;padding:11px 13px;
+    cursor:pointer;box-shadow:var(--shadow);
+    transition:box-shadow .15s ease, border-color .15s ease;
+  }
+  .guest-card:hover{box-shadow:var(--shadow-lift);border-color:#C7D5F0;}
+  .guest-card.active{border-color:var(--blue);background:var(--blue-light);}
+  .guest-card .card-info{flex:1;min-width:0;}
+  .guest-card .name{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .guest-card .meta{font-size:11.5px;color:var(--ink-soft);margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;}
+  .tag-mini{
+    background:var(--bg-soft);padding:1px 7px;border-radius:10px;
+    font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);
+  }
+  .tag-mini.alert{background:var(--alert-bg);color:var(--alert);}
+  .empty-state{padding:30px 12px;text-align:center;color:var(--ink-soft);font-size:13.5px;}
+
+  .avatar-mini{
+    width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;
+    border:1.5px solid var(--border);background:var(--bg-soft);
+  }
+  .avatar-mini-placeholder{
+    width:34px;height:34px;border-radius:50%;flex-shrink:0;background:var(--bg-soft);
+    border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;
+    font-size:14px;color:var(--ink-soft);
+  }
+
+  /* ---------- Main panel ---------- */
+  .main{flex:1;padding:26px 34px;overflow-x:hidden;}
+  .panel-empty{
+    height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--ink-soft);text-align:center;gap:12px;padding-top:80px;
+  }
+  .panel-empty h2{font-size:22px;}
+
+  .card-detail{
+    background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+    box-shadow:var(--shadow);overflow:hidden;
+  }
+  .updated-badge{
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);
+    background:var(--bg-soft);border:1px solid var(--border);
+    padding:4px 10px;border-radius:20px;white-space:nowrap;
+  }
+  .detail-head{
+    padding:22px 30px;border-bottom:1px solid var(--border);
+    display:flex;gap:20px;align-items:flex-start;justify-content:space-between;
+    background:var(--white);
+  }
+  .detail-head-left{display:flex;gap:18px;align-items:flex-start;}
+  .detail-head h2{margin:0;font-size:23px;}
+  .detail-head .sub{font-size:12.5px;color:var(--ink-soft);margin-top:4px;font-family:'JetBrains Mono',monospace;}
+  .detail-actions{display:flex;gap:8px;margin-top:14px;}
+  .head-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+  .head-right-actions{display:flex;gap:8px;}
+
+  .form-body{padding:24px 30px 30px;}
+  .section{margin-bottom:26px;}
+  .section-title{
+    font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;color:var(--blue);
+    text-transform:uppercase;letter-spacing:0.7px;font-size:12px;
+    border-bottom:1px solid var(--border);padding-bottom:7px;margin-bottom:16px;
+  }
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 16px;}
+  .grid.g2{grid-template-columns:repeat(2,1fr);}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field.span2{grid-column:span 2;}
+  .field.span3{grid-column:span 3;}
+  label{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.4px;}
+  input[type=text], input[type=date], input[type=time], select, textarea{
+    font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink);
+    padding:9px 11px;border:1px solid var(--border);border-radius:8px;
+    background:var(--bg-soft);width:100%;
+  }
+  input:focus, select:focus, textarea:focus{
+    outline:2px solid var(--blue);outline-offset:1px;background:var(--white);
+  }
+  textarea{resize:vertical;min-height:64px;font-family:'Inter',sans-serif;}
+  .checkbox-row{display:flex;align-items:center;gap:8px;padding-top:20px;}
+  .checkbox-row input{width:16px;height:16px;accent-color:var(--blue);}
+  .checkbox-row label{text-transform:none;font-weight:500;font-size:13px;}
+
+  .tag-picker{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px;}
+  .chip{
+    padding:5px 12px;border-radius:16px;border:1px solid var(--border);
+    background:var(--bg-soft);font-size:12px;cursor:pointer;color:var(--ink-soft);
+    transition:all .12s ease;
+  }
+  .chip.selected{background:var(--alert);border-color:var(--alert);color:var(--white);}
+  .chip.selected.diet{background:var(--success);border-color:var(--success);color:var(--white);}
+  .chip.readonly{cursor:default;}
+  .chip.chip-clickable{cursor:pointer;position:relative;}
+  .chip.chip-clickable:hover{filter:brightness(0.93);box-shadow:var(--shadow);}
+  .chip.chip-clickable:not(.selected):not(.diet){background:var(--bg-soft);}
+  .chip.hobby-chip{background:var(--blue-light);border-color:#C7D9FA;color:var(--navy-soft);}
+  .chip.hobby-chip:hover{background:#DCE9FF;}
+
+  .notes-log{font-family:'Inter',sans-serif;font-size:13px;line-height:1.5;}
+
+  .save-bar{
+    display:flex;justify-content:flex-end;gap:10px;padding:18px 30px;
+    border-top:1px solid var(--border);background:var(--bg-soft);
+  }
+  .toast{
+    position:fixed;bottom:24px;right:24px;background:var(--navy);color:var(--white);
+    padding:12px 18px;border-radius:8px;font-size:13.5px;box-shadow:var(--shadow-lift);
+    opacity:0;transform:translateY(8px);transition:all .25s ease;pointer-events:none;z-index:200;
+  }
+  .toast.show{opacity:1;transform:translateY(0);}
+
+  /* ---------- Vista de solo lectura ---------- */
+  .view-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 20px;}
+  .view-grid.g2{grid-template-columns:repeat(2,1fr);}
+  .view-field{display:flex;flex-direction:column;gap:4px;}
+  .view-field .vlabel{font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.4px;}
+  .view-field .vvalue{font-size:14.5px;color:var(--ink);font-weight:500;}
+  .view-field .vvalue.empty{color:#B7BEC9;font-weight:400;font-style:italic;}
+  .view-notes{font-size:14px;line-height:1.6;color:var(--ink);white-space:pre-wrap;}
+
+  /* ---------- Config modal ---------- */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(18,33,64,0.5);display:none;
+    align-items:center;justify-content:center;z-index:100;padding:20px;
+  }
+  .modal-backdrop.show{display:flex;}
+  .modal{
+    background:var(--white);border-radius:14px;max-width:640px;width:100%;
+    max-height:86vh;overflow-y:auto;box-shadow:var(--shadow-lift);
+  }
+  .modal-head{padding:20px 26px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  .modal-head h3{margin:0;}
+  .modal-body{padding:22px 26px;}
+  .modal-body p{font-size:13.5px;line-height:1.6;color:var(--ink-soft);}
+  .modal-body label{display:block;margin-top:14px;margin-bottom:5px;}
+  .close-x{background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink-soft);padding:2px 6px;}
+  .code-block{
+    background:var(--navy);color:#CBDBFF;font-family:'JetBrains Mono',monospace;font-size:11.5px;
+    padding:14px 16px;border-radius:8px;overflow-x:auto;white-space:pre;line-height:1.6;margin-top:10px;
+  }
+  .tab-strip{display:flex;gap:6px;margin-bottom:16px;}
+  .tab-btn{
+    padding:7px 14px;border-radius:8px;border:1px solid var(--border);
+    background:var(--bg-soft);font-size:13px;font-weight:600;cursor:pointer;color:var(--ink-soft);
+  }
+  .tab-btn.active{background:var(--navy);color:var(--white);border-color:var(--navy);}
+  .modal-foot{padding:16px 26px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;}
+
+  /* ---------- Foto ---------- */
+  .photo-box{
+    width:88px;height:88px;border-radius:12px;overflow:hidden;flex-shrink:0;
+    border:1.5px solid var(--border);background:var(--bg-soft);
+    display:flex;align-items:center;justify-content:center;position:relative;
+  }
+  .photo-box img{width:100%;height:100%;object-fit:cover;}
+  .photo-box .ph-icon{font-size:24px;opacity:0.35;}
+  .photo-actions{display:flex;flex-direction:column;gap:6px;}
+  .photo-row{display:flex;gap:16px;align-items:flex-start;}
+  .field-error{border-color:var(--alert) !important;background:var(--alert-bg) !important;}
+  .error-msg{color:var(--alert);font-size:12px;margin-top:4px;display:none;}
+  .error-msg.show{display:block;}
+
+  /* ---------- Combobox país/idioma ---------- */
+  .combo-wrap{position:relative;}
+  .combo-list{
+    position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:30;
+    background:var(--white);border:1px solid var(--border);border-radius:8px;
+    max-height:190px;overflow-y:auto;display:none;box-shadow:var(--shadow-lift);
+    margin:0;padding:5px 0;list-style:none;
+  }
+  .combo-list li{padding:8px 13px;font-size:13px;cursor:pointer;color:var(--ink);}
+  .combo-list li:hover, .combo-list li.hl{background:var(--bg-soft);}
+  .combo-list .no-match{color:var(--ink-soft);font-style:italic;cursor:default;}
+  .combo-list .no-match:hover{background:none;}
+
+  @media (max-width:900px){
+    .layout{flex-direction:column;}
+    .sidebar{width:100%;border-right:none;border-bottom:1px solid var(--border);}
+    .grid, .grid.g2, .view-grid, .view-grid.g2{grid-template-columns:1fr 1fr;}
+    .field.span2, .field.span3{grid-column:span 2;}
+    .main{padding:20px 16px;}
+    header{padding:14px 16px;flex-wrap:wrap;gap:10px;}
+    .detail-head{flex-direction:column;}
+    .head-right{align-items:flex-start;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>📇 Fichero de Huéspedes</h1>
+    <small id="hotelLabel">Hotel de ejemplo</small>
+  </div>
+  <div class="actions">
+    <span class="mode-pill local" id="modePill">Modo local</span>
+    <button class="btn-ghost" id="btnExport">Exportar</button>
+    <button class="btn-ghost" id="btnImport">Importar</button>
+    <button class="btn-ghost" id="btnConfig">Configuración</button>
+  </div>
+</header>
+
+<div class="banner" id="localBanner">
+  <span>⚠️ Estás en <strong>modo local</strong>: las fichas se guardan solo en este navegador. Conecta una base de datos para respaldo en servidor y acceso multi-recepcionista. <a id="linkConfig">Configurar Supabase →</a></span>
+  <button class="btn-outline btn-sm" id="btnExportBanner">Respaldar ahora</button>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <button class="btn-primary btn-add-guest" id="btnNew">+ Añadir huésped nuevo</button>
+      <div class="sidebar-label">Buscar huésped ya ingresado</div>
+      <div class="search-wrap">
+        <input class="search-box" id="searchInput" type="text" placeholder="Nombre del huésped..." autocomplete="off">
+      </div>
+    </div>
+    <div class="card-list" id="cardList"></div>
+  </aside>
+
+  <main class="main" id="mainPanel"></main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ---------- Modal Configuración ---------- -->
+<div class="modal-backdrop" id="configModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 class="display">Configuración</h3>
+      <button class="close-x" id="closeConfig">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tab-strip">
+        <button class="tab-btn active" data-tab="general">General</button>
+        <button class="tab-btn" data-tab="supabase">Conectar Supabase</button>
+        <button class="tab-btn" data-tab="ayuda">Cómo respaldar</button>
+      </div>
+
+      <div class="tab-content" id="tab-general">
+        <label>Nombre del hotel (aparece en el encabezado)</label>
+        <input type="text" id="cfgHotelName" placeholder="Ej: Novotel Vitacura">
+        <label>Tu nombre (para registrar quién crea/edita cada ficha)</label>
+        <input type="text" id="cfgUserName" placeholder="Ej: Felipe V.">
+      </div>
+
+      <div class="tab-content" id="tab-supabase" style="display:none;">
+        <p>Con Supabase, las fichas quedan guardadas en un servidor real (no solo en este navegador), con respaldo automático y control de acceso por login. El plan gratuito alcanza sobradamente para un hotel.</p>
+        <p><strong>1.</strong> Crea un proyecto gratis en <span class="mono">supabase.com</span>.<br>
+        <strong>2.</strong> En el editor SQL de tu proyecto, ejecuta este script para crear la tabla y las reglas de seguridad:</p>
+        <div class="code-block" id="sqlBlock"></div>
+        <p><strong>3.</strong> En tu proyecto Supabase, ve a Authentication → agrega un usuario (email/clave) por cada recepcionista.<br>
+        <strong>4.</strong> Pega aquí tu URL y tu clave <em>anon/public</em> (Settings → API):</p>
+        <label>Supabase URL</label>
+        <input type="text" id="cfgSbUrl" placeholder="https://xxxxx.supabase.co">
+        <label>Supabase anon key</label>
+        <input type="text" id="cfgSbKey" placeholder="eyJhbGciOi...">
+        <p style="margin-top:14px;">Al conectar, se te pedirá iniciar sesión con el email/clave que creaste en Supabase Authentication.</p>
+        <p><strong>Sobre las fotos:</strong> en este prototipo la foto se guarda comprimida dentro de la misma ficha (columna <span class="mono">foto_base64</span>), simple para partir. Si el hotel lo adopta en serio, lo ideal es migrar las fotos a Supabase Storage (bucket privado) en vez de guardarlas como texto.</p>
+      </div>
+
+      <div class="tab-content" id="tab-ayuda" style="display:none;">
+        <p><strong>Exportar</strong> descarga todas las fichas en un archivo JSON (respaldo completo, reimportable) y también puedes exportar a CSV para abrir en Excel (doble clic en "Exportar").</p>
+        <p><strong>Importar</strong> lee un archivo JSON exportado previamente y restaura las fichas — útil si cambias de computador o quieres migrar de modo local a Supabase.</p>
+        <p>Recomendación: si trabajas en modo local, exporta un respaldo cada cierto tiempo y guárdalo aparte (Drive, correo, USB).</p>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-outline" id="btnDisconnect">Desconectar Supabase</button>
+      <button class="btn-primary" id="btnSaveConfig">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- Modal Login ---------- -->
+<div class="modal-backdrop" id="loginModal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-head"><h3 class="display">Iniciar sesión</h3></div>
+    <div class="modal-body">
+      <label>Email</label>
+      <input type="text" id="loginEmail" placeholder="recepcion@hotel.cl">
+      <label>Clave</label>
+      <input type="text" id="loginPass" placeholder="••••••••">
+      <p id="loginError" style="color:var(--alert);display:none;"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-outline" id="btnLoginLocal">Seguir en modo local</button>
+      <button class="btn-primary" id="btnDoLogin">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".json" style="display:none;">
+
+<script>
+/* =========================================================
+   FICHERO DE HUÉSPEDES — app de ejemplo
+   Modo local (localStorage) + modo Supabase (servidor real)
+   ========================================================= */
+
+const FOOD_ALLERGY_TAGS = ["Maní","Mariscos","Lactosa","Gluten","Huevo","Frutos secos"];
+const DIET_TAGS = ["Vegetariano","Vegano","Kosher","Halal"];
+
+const PAISES = ["Afganistán","Albania","Alemania","Andorra","Angola","Antigua y Barbuda","Arabia Saudita","Argelia","Argentina","Armenia","Australia","Austria","Azerbaiyán","Bahamas","Baréin","Bangladés","Barbados","Bélgica","Belice","Benín","Bielorrusia","Birmania","Bolivia","Bosnia y Herzegovina","Botsuana","Brasil","Brunéi","Bulgaria","Burkina Faso","Burundi","Bután","Cabo Verde","Camboya","Camerún","Canadá","Catar","Chad","Chile","China","Chipre","Colombia","Comoras","Corea del Norte","Corea del Sur","Costa de Marfil","Costa Rica","Croacia","Cuba","Dinamarca","Dominica","Ecuador","Egipto","El Salvador","Emiratos Árabes Unidos","Eritrea","Eslovaquia","Eslovenia","España","Estados Unidos","Estonia","Esuatini","Etiopía","Filipinas","Finlandia","Fiyi","Francia","Gabón","Gambia","Georgia","Ghana","Granada","Grecia","Guatemala","Guyana","Guinea","Guinea-Bisáu","Guinea Ecuatorial","Haití","Honduras","Hungría","India","Indonesia","Irak","Irán","Irlanda","Islandia","Islas Marshall","Islas Salomón","Israel","Italia","Jamaica","Japón","Jordania","Kazajistán","Kenia","Kirguistán","Kiribati","Kuwait","Laos","Lesoto","Letonia","Líbano","Liberia","Libia","Liechtenstein","Lituania","Luxemburgo","Madagascar","Malasia","Malaui","Maldivas","Malí","Malta","Marruecos","Mauricio","Mauritania","México","Micronesia","Moldavia","Mónaco","Mongolia","Montenegro","Mozambique","Namibia","Nauru","Nepal","Nicaragua","Níger","Nigeria","Noruega","Nueva Zelanda","Omán","Países Bajos","Pakistán","Palaos","Panamá","Papúa Nueva Guinea","Paraguay","Perú","Polonia","Portugal","Reino Unido","República Centroafricana","República Checa","República del Congo","República Democrática del Congo","República Dominicana","Ruanda","Rumanía","Rusia","Samoa","San Cristóbal y Nieves","San Marino","San Vicente y las Granadinas","Santa Lucía","Santo Tomé y Príncipe","Senegal","Serbia","Seychelles","Sierra Leona","Singapur","Siria","Somalia","Sri Lanka","Sudáfrica","Sudán","Sudán del Sur","Suecia","Suiza","Surinam","Tailandia","Taiwán","Tanzania","Tayikistán","Timor Oriental","Togo","Tonga","Trinidad y Tobago","Túnez","Turkmenistán","Turquía","Tuvalu","Ucrania","Uganda","Uruguay","Uzbekistán","Vanuatu","Vaticano","Venezuela","Vietnam","Yemen","Yibuti","Zambia","Zimbabue"];
+
+const IDIOMAS = ["Español","Inglés","Portugués","Francés","Alemán","Italiano","Mandarín","Cantonés","Japonés","Coreano","Árabe","Ruso","Hindi","Neerlandés","Sueco","Noruego","Danés","Finlandés","Islandés","Polaco","Turco","Griego","Hebreo","Tailandés","Vietnamita","Indonesio","Malayo","Tagalo","Rumano","Húngaro","Checo","Eslovaco","Catalán","Croata","Serbio","Búlgaro","Ucraniano","Persa","Urdu","Bengalí","Punyabí","Suajili","Afrikáans","Georgiano","Armenio","Azerí","Kazajo","Mongol","Nepalí","Cingalés"];
+
+const LABELS = {
+  altura_piso:{bajo:'Bajo',medio:'Medio',alto:'Alto',sin_preferencia:'Sin preferencia'},
+  cerca_ascensor:{cerca:'Cerca',lejos:'Lejos',sin_preferencia:'Sin preferencia'},
+  tipo_cama:{twin:'Twin',king:'King'},
+  vista:{ciudad:'Ciudad',patio:'Patio / interior',sin_preferencia:'Sin preferencia'},
+  motivo_viaje:{trabajo:'Trabajo',leisure:'Leisure',mixto:'Mixto'},
+  frecuencia:{ocasional:'Ocasional',frecuente:'Frecuente',longstay:'Longstay'}
+};
+function labelFor(field, val){ return (LABELS[field] && LABELS[field][val]) || val || ''; }
+
+const state = {
+  guests: [],
+  activeId: null,
+  editing: null,       // objeto en edición o visualización (copia)
+  viewMode: 'empty',    // 'empty' | 'view' | 'edit' | 'filter'
+  filter: null,         // {type:'restriccion'|'alergia'|'hobby', value:'...'}
+  filterReturnId: null, // a qué huésped volver al cerrar el filtro
+  config: JSON.parse(localStorage.getItem('fh_config') || '{}'),
+  sb: null,
+  session: null,
+};
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+function uid(){ return 'g_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function nowIso(){ return new Date().toISOString(); }
+function fmtDate(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-CL', {day:'2-digit', month:'short', year:'numeric'});
+}
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._h); toast._h = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function escapeHtml(str){
+  const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML;
+}
+function normalizeText(s){
+  return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+}
+function hobbyTokens(str){
+  return (str||'').split(/[,;/]+/).map(s=>s.trim()).filter(Boolean);
+}
+
+/* ---------- Persistencia: capa unificada ---------- */
+async function loadGuests(){
+  if(state.sb && state.session){
+    const {data, error} = await state.sb.from('huespedes').select('*').order('actualizado_en',{ascending:false});
+    if(error){ toast('Error cargando desde Supabase: '+error.message); return; }
+    state.guests = data || [];
+  } else {
+    state.guests = JSON.parse(localStorage.getItem('fh_guests') || '[]')
+      .sort((a,b)=> new Date(b.actualizado_en) - new Date(a.actualizado_en));
+  }
+  renderList();
+}
+
+async function saveGuest(guest){
+  const author = state.config.userName || 'Recepción';
+  guest.actualizado_en = nowIso();
+  guest.actualizado_por = author;
+  if(!guest.creado_en){ guest.creado_en = nowIso(); guest.creado_por = author; }
+
+  if(state.sb && state.session){
+    const {data, error} = await state.sb.from('huespedes').upsert(guest).select();
+    if(error){ toast('Error guardando: '+error.message); return null; }
+    return data[0];
+  } else {
+    if(!guest.id) guest.id = uid();
+    const list = JSON.parse(localStorage.getItem('fh_guests') || '[]');
+    const idx = list.findIndex(g=>g.id===guest.id);
+    if(idx>=0) list[idx] = guest; else list.push(guest);
+    localStorage.setItem('fh_guests', JSON.stringify(list));
+    return guest;
+  }
+}
+
+async function deleteGuest(id){
+  if(state.sb && state.session){
+    const {error} = await state.sb.from('huespedes').delete().eq('id', id);
+    if(error){ toast('Error eliminando: '+error.message); return; }
+  } else {
+    const list = JSON.parse(localStorage.getItem('fh_guests') || '[]').filter(g=>g.id!==id);
+    localStorage.setItem('fh_guests', JSON.stringify(list));
+  }
+}
+
+/* ---------- Render: lista lateral ---------- */
+function renderList(){
+  const q = ($('#searchInput').value || '').toLowerCase();
+  const list = state.guests.filter(g => (g.nombre_completo||'').toLowerCase().includes(q));
+  const el = $('#cardList');
+  if(list.length===0){
+    el.innerHTML = `<div class="empty-state">${state.guests.length===0 ? 'Aún no hay fichas creadas.' : 'Sin resultados para tu búsqueda.'}</div>`;
+    return;
+  }
+  el.innerHTML = list.map(g => {
+    const alergiaCount = (g.alergias_alimentarias||[]).length;
+    const avatar = g.foto_base64
+      ? `<img class="avatar-mini" src="${g.foto_base64}" alt="">`
+      : `<div class="avatar-mini-placeholder">🪪</div>`;
+    return `
+    <div class="guest-card ${g.id===state.activeId?'active':''}" data-id="${g.id}">
+      ${avatar}
+      <div class="card-info">
+        <div class="name">${escapeHtml(g.nombre_completo || 'Sin nombre')}</div>
+        <div class="meta">
+          ${g.motivo_viaje ? `<span class="tag-mini">${labelFor('motivo_viaje', g.motivo_viaje)}</span>` : ''}
+          ${g.altura_piso ? `<span class="tag-mini">piso ${labelFor('altura_piso', g.altura_piso).toLowerCase()}</span>` : ''}
+          ${alergiaCount>0 ? `<span class="tag-mini alert">${alergiaCount} alergia${alergiaCount>1?'s':''}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  $$('.guest-card').forEach(card=>{
+    card.addEventListener('click', ()=> openGuest(card.dataset.id));
+  });
+}
+
+/* ---------- Modelo en blanco ---------- */
+function blankGuest(){
+  return {
+    id:null, nombre_completo:'', documento_identidad:'', foto_base64:'', nacionalidad:'', idioma:'',
+    altura_piso:'sin_preferencia', cerca_ascensor:'sin_preferencia', tipo_cama:'twin',
+    vista:'sin_preferencia',
+    alergias_alimentarias:[], restricciones:[], alergias_no_alimentarias:'', notas_medicas:'',
+    motivo_viaje:'leisure', frecuencia:'ocasional',
+    necesita_late_checkout:false, hobbies:'',
+    bebida_snack_preferido:'', notas_recepcion:'',
+    creado_en:null, creado_por:'', actualizado_en:null, actualizado_por:''
+  };
+}
+
+/* ---------- Navegación entre vistas ---------- */
+function openGuest(id){
+  const found = state.guests.find(g=>g.id===id);
+  if(!found) return;
+  state.activeId = id;
+  state.editing = JSON.parse(JSON.stringify(found));
+  state.editing.alergias_alimentarias = state.editing.alergias_alimentarias || [];
+  state.editing.restricciones = state.editing.restricciones || [];
+  state.viewMode = 'view';
+  renderList();
+  renderMain();
+}
+
+function newGuest(){
+  state.activeId = null;
+  state.editing = blankGuest();
+  state.viewMode = 'edit';
+  renderList();
+  renderMain();
+}
+
+function editCurrentGuest(){
+  state.viewMode = 'edit';
+  renderMain();
+}
+
+function openFilterView(type, value){
+  state.filterReturnId = state.activeId;
+  state.filter = {type, value};
+  state.viewMode = 'filter';
+  renderMain();
+}
+
+function closeFilterView(){
+  if(state.filterReturnId && state.guests.find(g=>g.id===state.filterReturnId)){
+    openGuest(state.filterReturnId);
+  } else {
+    state.editing = null;
+    state.activeId = null;
+    state.viewMode = 'empty';
+    renderList();
+    renderMain();
+  }
+}
+
+function matchesFilter(g){
+  const f = state.filter;
+  if(!f) return false;
+  if(f.type === 'restriccion') return (g.restricciones||[]).includes(f.value);
+  if(f.type === 'alergia') return (g.alergias_alimentarias||[]).includes(f.value);
+  if(f.type === 'hobby') return hobbyTokens(g.hobbies).some(h => normalizeText(h) === normalizeText(f.value));
+  return false;
+}
+
+function cancelEdit(){
+  if(state.editing && state.editing.id){
+    // Editaba un huésped existente: descarta cambios, vuelve a la vista de solo lectura
+    openGuest(state.editing.id);
+  } else {
+    // Estaba creando uno nuevo: vuelve al estado vacío
+    state.editing = null;
+    state.activeId = null;
+    state.viewMode = 'empty';
+    renderList();
+    renderMain();
+  }
+}
+
+/* ---------- Dispatch central de renderizado ---------- */
+function renderMain(){
+  if(state.viewMode === 'edit'){ renderGuestForm(); }
+  else if(state.viewMode === 'view'){ renderGuestView(); }
+  else if(state.viewMode === 'filter'){ renderFilterView(); }
+  else { renderEmptyState(); }
+}
+
+function renderEmptyState(){
+  $('#mainPanel').innerHTML = `
+    <div class="panel-empty">
+      <h2>Ningún huésped seleccionado</h2>
+      <p>Cada ficha guarda las preferencias del huésped: piso, alimentación, motivo de viaje, hobbies y más.</p>
+      <button class="btn-primary" id="btnNewEmpty">+ Añadir huésped nuevo</button>
+    </div>`;
+  $('#btnNewEmpty').onclick = newGuest;
+}
+
+/* ---------- Vista de filtro (huéspedes que comparten una característica) ---------- */
+function renderFilterView(){
+  const matches = state.guests.filter(matchesFilter);
+  const listHtml = matches.length
+    ? matches.map(g=>{
+        const avatar = g.foto_base64
+          ? `<img class="avatar-mini" src="${g.foto_base64}" alt="">`
+          : `<div class="avatar-mini-placeholder">🪪</div>`;
+        return `
+        <div class="guest-card filter-result" data-id="${g.id}">
+          ${avatar}
+          <div class="card-info">
+            <div class="name">${escapeHtml(g.nombre_completo)}</div>
+            <div class="meta">
+              ${g.motivo_viaje ? `<span class="tag-mini">${labelFor('motivo_viaje', g.motivo_viaje)}</span>` : ''}
+              ${g.altura_piso ? `<span class="tag-mini">piso ${labelFor('altura_piso', g.altura_piso).toLowerCase()}</span>` : ''}
+            </div>
+          </div>
+        </div>`;
+      }).join('')
+    : `<div class="empty-state">Ningún otro huésped registrado comparte esta característica todavía.</div>`;
+
+  $('#mainPanel').innerHTML = `
+    <div class="card-detail">
+      <div class="detail-head">
+        <div>
+          <button class="btn-outline btn-sm" id="btnBackFilter" style="margin-bottom:12px;">← Volver</button>
+          <h2>${escapeHtml(state.filter.value)}</h2>
+          <div class="sub">${matches.length} huésped${matches.length===1?'':'es'} con esta característica</div>
+        </div>
+      </div>
+      <div class="form-body">
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:520px;">${listHtml}</div>
+      </div>
+    </div>
+  `;
+  $('#btnBackFilter').onclick = closeFilterView;
+  $$('.filter-result').forEach(card=>{
+    card.addEventListener('click', ()=> openGuest(card.dataset.id));
+  });
+}
+
+/* ---------- Vista de solo lectura ---------- */
+function renderGuestView(){
+  const g = state.editing;
+  const vf = (label, value, empty) => `
+    <div class="view-field">
+      <div class="vlabel">${label}</div>
+      <div class="vvalue ${value ? '' : 'empty'}">${value ? escapeHtml(value) : (empty || 'No registrado')}</div>
+    </div>`;
+
+  const alergiaChips = (g.alergias_alimentarias||[]).length
+    ? (g.alergias_alimentarias||[]).map(t=>`<span class="chip selected chip-clickable" data-filter-type="alergia" data-filter-value="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')
+    : `<span class="vvalue empty">Sin alergias registradas</span>`;
+  const dietChips = (g.restricciones||[]).length
+    ? (g.restricciones||[]).map(t=>`<span class="chip selected diet chip-clickable" data-filter-type="restriccion" data-filter-value="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')
+    : `<span class="vvalue empty">Sin restricciones registradas</span>`;
+  const hobbyChips = hobbyTokens(g.hobbies).length
+    ? hobbyTokens(g.hobbies).map(h=>`<span class="chip hobby-chip chip-clickable" data-filter-type="hobby" data-filter-value="${escapeHtml(h)}">${escapeHtml(h)}</span>`).join('')
+    : `<span class="vvalue empty">No registrado</span>`;
+
+  $('#mainPanel').innerHTML = `
+  <div class="card-detail">
+    <div class="detail-head">
+      <div class="detail-head-left">
+        <div class="photo-box">
+          ${g.foto_base64 ? `<img src="${g.foto_base64}" alt="Foto del huésped">` : `<span class="ph-icon">🪪</span>`}
+        </div>
+        <div>
+          <h2>${escapeHtml(g.nombre_completo)}</h2>
+          <div class="sub">${g.creado_en ? `Creada ${fmtDate(g.creado_en)} por ${escapeHtml(g.creado_por||'—')}` : ''}</div>
+        </div>
+      </div>
+      <div class="head-right">
+        ${g.actualizado_en ? `<span class="updated-badge">Actualizado ${fmtDate(g.actualizado_en)}</span>` : ''}
+        <div class="head-right-actions">
+          <button class="btn-danger btn-sm" id="btnDelete">Eliminar</button>
+          <button class="btn-accent btn-sm" id="btnEdit">✎ Editar perfil</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-body">
+      <div class="section">
+        <div class="section-title">Datos base</div>
+        <div class="view-grid">
+          ${vf('N° documento', g.documento_identidad)}
+          ${vf('Nacionalidad', g.nacionalidad)}
+          ${vf('Idioma preferido', g.idioma)}
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Preferencia de habitación</div>
+        <div class="view-grid">
+          ${vf('Altura de piso', labelFor('altura_piso', g.altura_piso))}
+          ${vf('Cercanía al ascensor', labelFor('cerca_ascensor', g.cerca_ascensor))}
+          ${vf('Tipo de cama', labelFor('tipo_cama', g.tipo_cama))}
+          ${vf('Vista preferida', labelFor('vista', g.vista))}
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Alimentación y salud</div>
+        <div class="view-field" style="margin-bottom:14px;">
+          <div class="vlabel">Alergias alimentarias</div>
+          <div class="tag-picker">${alergiaChips}</div>
+        </div>
+        <div class="view-grid g2" style="margin-bottom:14px;">
+          ${vf('Otras alergias no alimentarias', g.alergias_no_alimentarias)}
+          ${vf('Notas médicas relevantes', g.notas_medicas)}
+        </div>
+        <div class="view-field">
+          <div class="vlabel">Restricciones dietarias</div>
+          <div class="tag-picker">${dietChips}</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Perfil de viaje</div>
+        <div class="view-grid g2">
+          ${vf('Motivo principal', labelFor('motivo_viaje', g.motivo_viaje))}
+          ${vf('Frecuencia', labelFor('frecuencia', g.frecuencia))}
+          ${vf('Late check-out', g.necesita_late_checkout ? 'Sí, suele pedirlo' : 'No')}
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Personal y hobbies</div>
+        <div class="view-field" style="margin-bottom:14px;">
+          <div class="vlabel">Hobbies / intereses</div>
+          <div class="tag-picker">${hobbyChips}</div>
+        </div>
+        <div class="view-grid g2" style="margin-bottom:14px;">
+          ${vf('Bebida o snack de bienvenida', g.bebida_snack_preferido)}
+        </div>
+        <div class="view-field">
+          <div class="vlabel">Notas de recepción</div>
+          <div class="view-notes">${g.notas_recepcion ? escapeHtml(g.notas_recepcion) : '<span class="vvalue empty">Sin notas</span>'}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  `;
+
+  $('#btnEdit').onclick = editCurrentGuest;
+  $('#btnDelete').onclick = onDeleteClick;
+  $$('.chip-clickable').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      openFilterView(chip.dataset.filterType, chip.dataset.filterValue);
+    });
+  });
+}
+
+/* ---------- Vista de edición (formulario) ---------- */
+function renderGuestForm(){
+  const g = state.editing;
+  const isNew = !g.id;
+
+  const sel = (val,opts) => opts.map(o=>`<option value="${o.v}" ${o.v===val?'selected':''}>${o.l}</option>`).join('');
+
+  $('#mainPanel').innerHTML = `
+  <div class="card-detail">
+    <div class="detail-head">
+      <div class="detail-head-left">
+        <div class="photo-box" id="photoBox">
+          ${g.foto_base64 ? `<img src="${g.foto_base64}" alt="Foto del huésped">` : `<span class="ph-icon">🪪</span>`}
+        </div>
+        <div class="photo-actions">
+          <button class="btn-outline btn-sm" id="btnPhoto">${g.foto_base64 ? 'Cambiar foto' : 'Subir foto / carnet'}</button>
+          ${g.foto_base64 ? `<button class="btn-danger btn-sm" id="btnPhotoRemove">Quitar foto</button>` : ''}
+          <input type="file" id="photoInput" accept="image/*" style="display:none;">
+        </div>
+      </div>
+      <div class="head-right">
+        <h2 style="align-self:flex-end;">${isNew ? 'Nueva ficha' : escapeHtml(g.nombre_completo)}</h2>
+      </div>
+    </div>
+
+    <div class="form-body">
+      <div class="section">
+        <div class="section-title">Datos base</div>
+        <div class="grid">
+          <div class="field span2">
+            <label>Nombre completo</label>
+            <input type="text" id="f_nombre" value="${escapeHtml(g.nombre_completo)}" autocomplete="off">
+            <div class="error-msg" id="nameError">Ya existe un huésped con este mismo nombre. Agrega un segundo apellido, apodo u otro dato para diferenciarlo.</div>
+          </div>
+          <div class="field"><label>N° documento (RUT/Pasaporte)</label><input type="text" id="f_doc" value="${escapeHtml(g.documento_identidad)}" autocomplete="off"></div>
+          <div class="field"><label>Nacionalidad</label>
+            <div class="combo-wrap">
+              <input type="text" id="f_nac" value="${escapeHtml(g.nacionalidad)}" autocomplete="off" placeholder="Escribe para buscar...">
+              <ul class="combo-list" id="listNac"></ul>
+            </div>
+          </div>
+          <div class="field"><label>Idioma preferido</label>
+            <div class="combo-wrap">
+              <input type="text" id="f_idioma" value="${escapeHtml(g.idioma)}" autocomplete="off" placeholder="Escribe para buscar...">
+              <ul class="combo-list" id="listIdioma"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Preferencia de habitación</div>
+        <div class="grid">
+          <div class="field"><label>Altura de piso</label>
+            <select id="f_piso">${sel(g.altura_piso,[{v:'bajo',l:'Bajo'},{v:'medio',l:'Medio'},{v:'alto',l:'Alto'},{v:'sin_preferencia',l:'Sin preferencia'}])}</select>
+          </div>
+          <div class="field"><label>Cercanía al ascensor</label>
+            <select id="f_ascensor">${sel(g.cerca_ascensor,[{v:'cerca',l:'Cerca'},{v:'lejos',l:'Lejos'},{v:'sin_preferencia',l:'Sin preferencia'}])}</select>
+          </div>
+          <div class="field"><label>Tipo de cama</label>
+            <select id="f_cama">${sel(g.tipo_cama,[{v:'twin',l:'Twin'},{v:'king',l:'King'}])}</select>
+          </div>
+          <div class="field"><label>Vista preferida</label>
+            <select id="f_vista">${sel(g.vista,[{v:'ciudad',l:'Ciudad'},{v:'patio',l:'Patio / interior'},{v:'sin_preferencia',l:'Sin preferencia'}])}</select>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Alimentación y salud</div>
+        <label style="display:block;margin-bottom:7px;">Alergias alimentarias</label>
+        <div class="tag-picker" id="foodTags"></div>
+        <div class="grid g2" style="margin-top:6px;">
+          <div class="field"><label>Otras alergias no alimentarias</label><input type="text" id="f_alergNoAlim" value="${escapeHtml(g.alergias_no_alimentarias)}" placeholder="Ej: perfumes, plumón" autocomplete="off"></div>
+          <div class="field"><label>Notas médicas relevantes (opcional)</label><input type="text" id="f_notasMed" value="${escapeHtml(g.notas_medicas)}" autocomplete="off"></div>
+        </div>
+        <label style="display:block;margin:14px 0 7px;">Restricciones dietarias</label>
+        <div class="tag-picker" id="dietTags"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Perfil de viaje</div>
+        <div class="grid g2">
+          <div class="field"><label>Motivo principal</label>
+            <select id="f_motivo">${sel(g.motivo_viaje,[{v:'trabajo',l:'Trabajo'},{v:'leisure',l:'Leisure'},{v:'mixto',l:'Mixto'}])}</select>
+          </div>
+          <div class="field"><label>Frecuencia</label>
+            <select id="f_frecuencia">${sel(g.frecuencia,[{v:'ocasional',l:'Ocasional'},{v:'frecuente',l:'Frecuente'},{v:'longstay',l:'Longstay'}])}</select>
+          </div>
+          <div class="checkbox-row"><input type="checkbox" id="f_lateCheckout" ${g.necesita_late_checkout?'checked':''}><label>Suele pedir late check-out</label></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Personal y hobbies</div>
+        <div class="grid g2">
+          <div class="field"><label>Hobbies / intereses</label><input type="text" id="f_hobbies" value="${escapeHtml(g.hobbies)}" placeholder="Ej: F1, running, vino" autocomplete="off"></div>
+          <div class="field"><label>Bebida o snack de bienvenida</label><input type="text" id="f_bebida" value="${escapeHtml(g.bebida_snack_preferido)}" autocomplete="off"></div>
+        </div>
+        <div class="field" style="margin-top:14px;"><label>Notas de recepción</label>
+          <textarea id="f_notas" class="notes-log" placeholder="Observaciones libres, historial de interacciones...">${escapeHtml(g.notas_recepcion)}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="save-bar">
+      <button class="btn-outline" id="btnCancel">Cancelar</button>
+      <button class="btn-primary" id="btnSave">Guardar ficha</button>
+    </div>
+  </div>
+  `;
+
+  renderTagPicker('foodTags', FOOD_ALLERGY_TAGS, g.alergias_alimentarias, false);
+  renderTagPicker('dietTags', DIET_TAGS, g.restricciones, true);
+  setupCombobox('f_nac', 'listNac', PAISES);
+  setupCombobox('f_idioma', 'listIdioma', IDIOMAS);
+
+  $('#btnCancel').onclick = cancelEdit;
+  $('#btnSave').onclick = onSaveClick;
+  $('#f_nombre').addEventListener('input', ()=>{
+    $('#f_nombre').classList.remove('field-error');
+    $('#nameError').classList.remove('show');
+  });
+  $('#btnPhoto').onclick = () => $('#photoInput').click();
+  $('#photoInput').onchange = (e) => { if(e.target.files[0]) handlePhotoUpload(e.target.files[0]); e.target.value=''; };
+  if($('#btnPhotoRemove')) $('#btnPhotoRemove').onclick = removePhoto;
+}
+
+function renderTagPicker(containerId, tags, selected, isDiet){
+  const el = $('#'+containerId);
+  el.innerHTML = tags.map(t=>{
+    const isSel = selected.includes(t);
+    return `<span class="chip ${isSel?'selected':''} ${isDiet?'diet':''}" data-tag="${t}">${t}</span>`;
+  }).join('');
+  el.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const tag = chip.dataset.tag;
+      const arr = selected;
+      const i = arr.indexOf(tag);
+      if(i>=0) arr.splice(i,1); else arr.push(tag);
+      chip.classList.toggle('selected');
+    });
+  });
+}
+
+function setupCombobox(inputId, listId, options){
+  const input = document.getElementById(inputId);
+  const list = document.getElementById(listId);
+  if(!input || !list) return;
+
+  function renderOptions(){
+    const q = normalizeText(input.value);
+    const matches = q ? options.filter(o => normalizeText(o).startsWith(q)) : options;
+    if(matches.length === 0){
+      list.innerHTML = `<li class="no-match">Sin coincidencias — se guardará el texto escrito</li>`;
+    } else {
+      list.innerHTML = matches.slice(0,60).map(o => `<li data-val="${escapeHtml(o)}">${escapeHtml(o)}</li>`).join('');
+    }
+    list.style.display = 'block';
+  }
+
+  input.addEventListener('input', renderOptions);
+  input.addEventListener('focus', renderOptions);
+  input.addEventListener('blur', () => setTimeout(()=>{ list.style.display='none'; }, 150));
+  list.addEventListener('mousedown', (e) => {
+    const li = e.target.closest('li[data-val]');
+    if(!li) return;
+    input.value = li.dataset.val;
+    list.style.display = 'none';
+  });
+}
+
+/* ---------- Foto ---------- */
+function resizeImageToBase64(file, maxDim=480, quality=0.72){
+  return new Promise((resolve)=>{
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const rawDataUrl = e.target.result;
+      const img = new Image();
+      img.onload = () => {
+        try{
+          let {width, height} = img;
+          if(width > height && width > maxDim){ height = Math.round(height * maxDim/width); width = maxDim; }
+          else if(height > maxDim){ width = Math.round(width * maxDim/height); height = maxDim; }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        }catch(err){
+          console.warn('No se pudo comprimir la imagen, se guarda el archivo original:', err);
+          resolve(rawDataUrl);
+        }
+      };
+      img.onerror = () => {
+        console.warn('No se pudo previsualizar la imagen, se guarda el archivo original.');
+        resolve(rawDataUrl);
+      };
+      img.src = rawDataUrl;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handlePhotoUpload(file){
+  if(!file.type.startsWith('image/')){ toast('Selecciona un archivo de imagen.'); return; }
+  const dataUrl = await resizeImageToBase64(file);
+  if(!dataUrl){ toast('No se pudo leer el archivo seleccionado.'); return; }
+  state.editing.foto_base64 = dataUrl;
+  renderGuestForm();
+  toast('Foto agregada. Recuerda guardar la ficha.');
+}
+
+function removePhoto(){
+  state.editing.foto_base64 = '';
+  renderGuestForm();
+}
+
+/* ---------- Duplicados ---------- */
+function findDuplicateName(name, excludeId){
+  const norm = normalizeText(name);
+  return state.guests.find(g => g.id !== excludeId && normalizeText(g.nombre_completo) === norm);
+}
+
+/* ---------- Guardar / eliminar ---------- */
+async function onSaveClick(){
+  const g = state.editing;
+  g.nombre_completo = $('#f_nombre').value.trim();
+  if(!g.nombre_completo){ toast('El nombre del huésped es obligatorio.'); return; }
+
+  const dup = findDuplicateName(g.nombre_completo, g.id);
+  if(dup){
+    $('#f_nombre').classList.add('field-error');
+    $('#nameError').classList.add('show');
+    $('#f_nombre').focus();
+    toast('Nombre duplicado — diferencia esta ficha con un dato adicional.');
+    return;
+  }
+
+  g.documento_identidad = $('#f_doc').value.trim();
+  g.nacionalidad = $('#f_nac').value.trim();
+  g.idioma = $('#f_idioma').value.trim();
+  g.altura_piso = $('#f_piso').value;
+  g.cerca_ascensor = $('#f_ascensor').value;
+  g.tipo_cama = $('#f_cama').value;
+  g.vista = $('#f_vista').value;
+  g.alergias_no_alimentarias = $('#f_alergNoAlim').value.trim();
+  g.notas_medicas = $('#f_notasMed').value.trim();
+  g.motivo_viaje = $('#f_motivo').value;
+  g.frecuencia = $('#f_frecuencia').value;
+  g.necesita_late_checkout = $('#f_lateCheckout').checked;
+  g.hobbies = $('#f_hobbies').value.trim();
+  g.bebida_snack_preferido = $('#f_bebida').value.trim();
+  g.notas_recepcion = $('#f_notas').value.trim();
+
+  const saved = await saveGuest(g);
+  if(!saved) return;
+  toast('Ficha guardada.');
+  await loadGuests();
+  openGuest(saved.id);
+}
+
+async function onDeleteClick(){
+  if(!confirm(`¿Eliminar la ficha de ${state.editing.nombre_completo}? Esta acción no se puede deshacer.`)) return;
+  await deleteGuest(state.editing.id);
+  toast('Ficha eliminada.');
+  state.editing = null; state.activeId = null; state.viewMode = 'empty';
+  await loadGuests();
+  renderMain();
+}
+
+/* ---------- Exportar / Importar ---------- */
+function exportJson(){
+  const blob = new Blob([JSON.stringify(state.guests, null, 2)], {type:'application/json'});
+  downloadBlob(blob, `fichas_huespedes_${dateStamp()}.json`);
+  toast('Respaldo JSON descargado.');
+}
+function exportCsv(){
+  if(state.guests.length===0){ toast('No hay fichas para exportar.'); return; }
+  const cols = Object.keys(blankGuest());
+  const rows = [cols.join(',')];
+  state.guests.forEach(g=>{
+    rows.push(cols.map(c=>{
+      let v = g[c];
+      if(Array.isArray(v)) v = v.join('; ');
+      v = (v===undefined||v===null) ? '' : String(v).replace(/"/g,'""');
+      return `"${v}"`;
+    }).join(','));
+  });
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  downloadBlob(blob, `fichas_huespedes_${dateStamp()}.csv`);
+  toast('CSV descargado.');
+}
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function dateStamp(){ return new Date().toISOString().slice(0,10); }
+
+async function importJson(file){
+  const text = await file.text();
+  let data;
+  try{ data = JSON.parse(text); } catch(e){ toast('Archivo inválido.'); return; }
+  if(!Array.isArray(data)){ toast('El archivo no tiene el formato esperado.'); return; }
+  if(!confirm(`Se importarán ${data.length} fichas. Las que coincidan por ID se sobrescribirán. ¿Continuar?`)) return;
+  for(const g of data){ await saveGuest(g); }
+  toast('Importación completa.');
+  await loadGuests();
+}
+
+/* ---------- Config modal ---------- */
+const SQL_SCRIPT = `create table huespedes (
+  id uuid primary key default gen_random_uuid(),
+  nombre_completo text not null,
+  documento_identidad text,
+  foto_base64 text,
+  nacionalidad text,
+  idioma text,
+  altura_piso text,
+  cerca_ascensor text,
+  tipo_cama text,
+  vista text,
+  alergias_alimentarias text[],
+  restricciones text[],
+  alergias_no_alimentarias text,
+  notas_medicas text,
+  motivo_viaje text,
+  frecuencia text,
+  necesita_late_checkout boolean default false,
+  hobbies text,
+  bebida_snack_preferido text,
+  notas_recepcion text,
+  creado_en timestamptz default now(),
+  creado_por text,
+  actualizado_en timestamptz default now(),
+  actualizado_por text
+);
+
+alter table huespedes enable row level security;
+
+create policy "select_autenticados"
+on huespedes for select to authenticated using (true);
+
+create policy "insert_autenticados"
+on huespedes for insert to authenticated with check (true);
+
+create policy "update_autenticados"
+on huespedes for update to authenticated using (true);
+
+create policy "delete_autenticados"
+on huespedes for delete to authenticated using (true);`;
+
+function openConfig(){
+  $('#cfgHotelName').value = state.config.hotelName || '';
+  $('#cfgUserName').value = state.config.userName || '';
+  $('#cfgSbUrl').value = state.config.sbUrl || '';
+  $('#cfgSbKey').value = state.config.sbKey || '';
+  $('#sqlBlock').textContent = SQL_SCRIPT;
+  $('#configModal').classList.add('show');
+}
+function closeConfig(){ $('#configModal').classList.remove('show'); }
+
+async function saveConfig(){
+  state.config.hotelName = $('#cfgHotelName').value.trim();
+  state.config.userName = $('#cfgUserName').value.trim();
+  state.config.sbUrl = $('#cfgSbUrl').value.trim();
+  state.config.sbKey = $('#cfgSbKey').value.trim();
+  localStorage.setItem('fh_config', JSON.stringify(state.config));
+  applyConfigToUi();
+  closeConfig();
+  if(state.config.sbUrl && state.config.sbKey){
+    await connectSupabase();
+  }
+  toast('Configuración guardada.');
+}
+
+function disconnectSupabase(){
+  state.config.sbUrl=''; state.config.sbKey='';
+  localStorage.setItem('fh_config', JSON.stringify(state.config));
+  state.sb = null; state.session = null;
+  applyConfigToUi();
+  closeConfig();
+  loadGuests();
+  toast('Desconectado. Volviste a modo local.');
+}
+
+function applyConfigToUi(){
+  $('#hotelLabel').textContent = state.config.hotelName || 'Hotel de ejemplo';
+  const connected = !!(state.sb && state.session);
+  $('#modePill').textContent = connected ? 'Conectado · Supabase' : 'Modo local';
+  $('#modePill').className = 'mode-pill ' + (connected ? 'cloud' : 'local');
+  $('#localBanner').style.display = connected ? 'none' : 'flex';
+}
+
+async function connectSupabase(){
+  if(!window.supabase){ toast('No se pudo cargar la librería de Supabase.'); return; }
+  state.sb = window.supabase.createClient(state.config.sbUrl, state.config.sbKey);
+  const {data:{session}} = await state.sb.auth.getSession();
+  if(session){
+    state.session = session;
+    applyConfigToUi();
+    await loadGuests();
+  } else {
+    $('#loginModal').classList.add('show');
+  }
+}
+
+/* ---------- Login ---------- */
+async function doLogin(){
+  const email = $('#loginEmail').value.trim();
+  const pass = $('#loginPass').value;
+  const {data, error} = await state.sb.auth.signInWithPassword({email, password: pass});
+  if(error){
+    $('#loginError').textContent = error.message;
+    $('#loginError').style.display = 'block';
+    return;
+  }
+  state.session = data.session;
+  $('#loginModal').classList.remove('show');
+  applyConfigToUi();
+  await loadGuests();
+  toast('Sesión iniciada.');
+}
+
+/* ---------- Eventos generales ---------- */
+$('#btnNew').onclick = newGuest;
+$('#btnConfig').onclick = openConfig;
+$('#linkConfig').onclick = openConfig;
+$('#closeConfig').onclick = closeConfig;
+$('#btnSaveConfig').onclick = saveConfig;
+$('#btnDisconnect').onclick = disconnectSupabase;
+$('#btnExport').onclick = exportJson;
+$('#btnExportBanner').onclick = exportJson;
+$('#btnImport').onclick = () => $('#fileInput').click();
+$('#fileInput').onchange = (e) => { if(e.target.files[0]) importJson(e.target.files[0]); e.target.value=''; };
+$('#searchInput').oninput = renderList;
+$('#btnLoginLocal').onclick = () => { $('#loginModal').classList.remove('show'); };
+$('#btnDoLogin').onclick = doLogin;
+
+$$('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    $$('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    $$('.tab-content').forEach(c=>c.style.display='none');
+    $('#tab-'+btn.dataset.tab).style.display='block';
+  });
+});
+
+$('#btnExport').addEventListener('dblclick', exportCsv);
+$('#btnExport').title = 'Clic: exportar JSON  ·  Doble clic: exportar CSV';
+
+/* ---------- Init ---------- */
+(async function init(){
+  applyConfigToUi();
+  if(state.config.sbUrl && state.config.sbKey){
+    await connectSupabase();
+  } else {
+    await loadGuests();
+  }
+  renderMain();
+})();
+</script>
+</body>
+</html>
