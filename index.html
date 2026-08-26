@@ -425,6 +425,14 @@ const LABELS = {
 };
 function labelFor(field, val){ return (LABELS[field] && LABELS[field][val]) || val || ''; }
 
+// Credenciales por defecto: se usan en cualquier dispositivo nuevo que abra esta página,
+// así no hay que configurar Supabase manualmente cada vez. Si el hotel cambia de proyecto
+// Supabase, basta con actualizar estos dos valores.
+const DEFAULT_CONFIG = {
+  sbUrl: 'https://qzhdvbdatyduogffbbux.supabase.co',
+  sbKey: 'sb_publishable_VrWi6kgMbvjuqmk7BCjRUw_imjuI9L6'
+};
+
 const state = {
   guests: [],
   activeId: null,
@@ -432,7 +440,7 @@ const state = {
   viewMode: 'empty',    // 'empty' | 'view' | 'edit' | 'filter'
   filter: null,         // {type:'restriccion'|'alergia'|'hobby', value:'...'}
   filterReturnId: null, // a qué huésped volver al cerrar el filtro
-  config: JSON.parse(localStorage.getItem('fh_config') || '{}'),
+  config: Object.assign({}, DEFAULT_CONFIG, JSON.parse(localStorage.getItem('fh_config') || '{}')),
   sb: null,
   session: null,
 };
