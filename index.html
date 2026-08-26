@@ -418,7 +418,7 @@ const IDIOMAS = ["Español","Inglés","Portugués","Francés","Alemán","Italian
 const LABELS = {
   altura_piso:{bajo:'Bajo',medio:'Medio',alto:'Alto',sin_preferencia:'Sin preferencia'},
   cerca_ascensor:{cerca:'Cerca',lejos:'Lejos',sin_preferencia:'Sin preferencia'},
-  tipo_cama:{twin:'Twin',king:'King'},
+  tipo_cama:{twin:'Twin',king:'King',sin_preferencia:'Sin preferencia'},
   vista:{ciudad:'Ciudad',patio:'Patio / interior',sin_preferencia:'Sin preferencia'},
   motivo_viaje:{trabajo:'Trabajo',leisure:'Leisure',mixto:'Mixto'},
   frecuencia:{ocasional:'Ocasional',frecuente:'Frecuente',longstay:'Longstay'}
@@ -481,7 +481,9 @@ async function saveGuest(guest){
   if(!guest.creado_en){ guest.creado_en = nowIso(); guest.creado_por = author; }
 
   if(state.sb && state.session){
-    const {data, error} = await state.sb.from('huespedes').upsert(guest).select();
+    const payload = {...guest};
+    if(!payload.id) delete payload.id; // deja que Postgres genere el UUID (gen_random_uuid())
+    const {data, error} = await state.sb.from('huespedes').upsert(payload).select();
     if(error){ toast('Error guardando: '+error.message); return null; }
     return data[0];
   } else {
@@ -539,7 +541,7 @@ function renderList(){
 /* ---------- Modelo en blanco ---------- */
 function blankGuest(){
   return {
-    id:null, nombre_completo:'', documento_identidad:'', foto_base64:'', nacionalidad:'', idioma:'',
+    id:null, nombre_completo:'', documento_identidad:'', patente_vehiculo:'', foto_base64:'', nacionalidad:'', idioma:'',
     altura_piso:'sin_preferencia', cerca_ascensor:'sin_preferencia', tipo_cama:'twin',
     vista:'sin_preferencia',
     alergias_alimentarias:[], restricciones:[], alergias_no_alimentarias:'', notas_medicas:'',
@@ -723,6 +725,7 @@ function renderGuestView(){
         <div class="section-title">Datos base</div>
         <div class="view-grid">
           ${vf('N° documento', g.documento_identidad)}
+          ${vf('Patente vehículo', g.patente_vehiculo)}
           ${vf('Nacionalidad', g.nacionalidad)}
           ${vf('Idioma preferido', g.idioma)}
         </div>
@@ -825,6 +828,7 @@ function renderGuestForm(){
             <div class="error-msg" id="nameError">Ya existe un huésped con este mismo nombre. Agrega un segundo apellido, apodo u otro dato para diferenciarlo.</div>
           </div>
           <div class="field"><label>N° documento (RUT/Pasaporte)</label><input type="text" id="f_doc" value="${escapeHtml(g.documento_identidad)}" autocomplete="off"></div>
+          <div class="field"><label>Patente vehículo</label><input type="text" id="f_patente" value="${escapeHtml(g.patente_vehiculo)}" placeholder="Si viene en auto" autocomplete="off"></div>
           <div class="field"><label>Nacionalidad</label>
             <div class="combo-wrap">
               <input type="text" id="f_nac" value="${escapeHtml(g.nacionalidad)}" autocomplete="off" placeholder="Escribe para buscar...">
@@ -850,7 +854,7 @@ function renderGuestForm(){
             <select id="f_ascensor">${sel(g.cerca_ascensor,[{v:'cerca',l:'Cerca'},{v:'lejos',l:'Lejos'},{v:'sin_preferencia',l:'Sin preferencia'}])}</select>
           </div>
           <div class="field"><label>Tipo de cama</label>
-            <select id="f_cama">${sel(g.tipo_cama,[{v:'twin',l:'Twin'},{v:'king',l:'King'}])}</select>
+            <select id="f_cama">${sel(g.tipo_cama,[{v:'twin',l:'Twin'},{v:'king',l:'King'},{v:'sin_preferencia',l:'Sin preferencia'}])}</select>
           </div>
           <div class="field"><label>Vista preferida</label>
             <select id="f_vista">${sel(g.vista,[{v:'ciudad',l:'Ciudad'},{v:'patio',l:'Patio / interior'},{v:'sin_preferencia',l:'Sin preferencia'}])}</select>
@@ -1030,6 +1034,7 @@ async function onSaveClick(){
   }
 
   g.documento_identidad = $('#f_doc').value.trim();
+  g.patente_vehiculo = $('#f_patente').value.trim();
   g.nacionalidad = $('#f_nac').value.trim();
   g.idioma = $('#f_idioma').value.trim();
   g.altura_piso = $('#f_piso').value;
@@ -1107,6 +1112,7 @@ const SQL_SCRIPT = `create table huespedes (
   id uuid primary key default gen_random_uuid(),
   nombre_completo text not null,
   documento_identidad text,
+  patente_vehiculo text,
   foto_base64 text,
   nacionalidad text,
   idioma text,
