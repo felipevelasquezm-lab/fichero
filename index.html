@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
   :root{
     --navy:#122140;
@@ -74,6 +75,20 @@
   .btn-danger{background:transparent;color:var(--alert);border:1px solid var(--alert);}
   .btn-danger:hover{background:var(--alert-bg);}
   .btn-sm{padding:6px 11px;font-size:12.5px;}
+
+  .export-dropdown{position:relative; display:inline-block;}
+  .export-menu{
+    display:none; position:absolute; top:calc(100% + 6px); right:0;
+    background:var(--bg); border:1px solid var(--border); border-radius:8px;
+    box-shadow:var(--shadow-lift); min-width:230px; z-index:60; overflow:hidden; padding:4px;
+  }
+  .export-menu.open{display:block;}
+  .export-menu button{
+    display:flex; width:100%; text-align:left; border:none; background:transparent;
+    padding:10px 10px; border-radius:6px; font-size:13.5px; font-weight:500; color:var(--ink);
+    cursor:pointer;
+  }
+  .export-menu button:hover{background:var(--bg-soft);}
 
   /* ---------- Banner modo local ---------- */
   .banner{
@@ -305,7 +320,13 @@
   </div>
   <div class="actions">
     <span class="mode-pill local" id="modePill">Modo local</span>
-    <button class="btn-ghost" id="btnExport">Exportar</button>
+    <div class="export-dropdown">
+      <button class="btn-ghost" id="btnExport">Exportar ▾</button>
+      <div class="export-menu" id="exportMenu">
+        <button type="button" id="exportExcelBtn">📊 Excel (tabla)</button>
+        <button type="button" id="exportJsonBtnMenu">📄 JSON (respaldo completo)</button>
+      </div>
+    </div>
     <button class="btn-ghost" id="btnImport">Importar</button>
     <button class="btn-ghost" id="btnConfig">Configuración</button>
   </div>
@@ -1081,21 +1102,87 @@ function exportJson(){
   downloadBlob(blob, `fichas_huespedes_${dateStamp()}.json`);
   toast('Respaldo JSON descargado.');
 }
-function exportCsv(){
+async function exportExcel(){
   if(state.guests.length===0){ toast('No hay fichas para exportar.'); return; }
-  const cols = Object.keys(blankGuest());
-  const rows = [cols.join(',')];
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Fichero de Huéspedes';
+  const sheet = wb.addWorksheet('Huéspedes', { views:[{ state:'frozen', ySplit:1 }] });
+
+  sheet.columns = [
+    { header:'Nombre completo', key:'nombre', width:24 },
+    { header:'Documento', key:'doc', width:14 },
+    { header:'Patente vehículo', key:'patente', width:14 },
+    { header:'Nacionalidad', key:'nacionalidad', width:16 },
+    { header:'Idioma', key:'idioma', width:12 },
+    { header:'Piso preferido', key:'piso', width:14 },
+    { header:'Cerca ascensor', key:'ascensor', width:14 },
+    { header:'Tipo de cama', key:'cama', width:14 },
+    { header:'Vista preferida', key:'vista', width:14 },
+    { header:'Alergias alimentarias', key:'alergiasA', width:26 },
+    { header:'Restricciones', key:'restricciones', width:22 },
+    { header:'Alergias no alimentarias', key:'alergiasNA', width:26 },
+    { header:'Notas médicas', key:'notasMed', width:28 },
+    { header:'Motivo de viaje', key:'motivo', width:16 },
+    { header:'Frecuencia', key:'frecuencia', width:14 },
+    { header:'Late checkout', key:'late', width:12 },
+    { header:'Hobbies', key:'hobbies', width:22 },
+    { header:'Bebida/snack preferido', key:'bebida', width:22 },
+    { header:'Notas de recepción', key:'notasRec', width:32 },
+    { header:'Actualizado por', key:'actPor', width:16 },
+    { header:'Actualizado', key:'actEn', width:16 },
+  ];
+
   state.guests.forEach(g=>{
-    rows.push(cols.map(c=>{
-      let v = g[c];
-      if(Array.isArray(v)) v = v.join('; ');
-      v = (v===undefined||v===null) ? '' : String(v).replace(/"/g,'""');
-      return `"${v}"`;
-    }).join(','));
+    sheet.addRow({
+      nombre: g.nombre_completo || '',
+      doc: g.documento_identidad || '',
+      patente: g.patente_vehiculo || '',
+      nacionalidad: g.nacionalidad || '',
+      idioma: g.idioma || '',
+      piso: g.altura_piso || '',
+      ascensor: g.cerca_ascensor || '',
+      cama: g.tipo_cama || '',
+      vista: g.vista || '',
+      alergiasA: (g.alergias_alimentarias||[]).join(', '),
+      restricciones: (g.restricciones||[]).join(', '),
+      alergiasNA: g.alergias_no_alimentarias || '',
+      notasMed: g.notas_medicas || '',
+      motivo: g.motivo_viaje || '',
+      frecuencia: g.frecuencia || '',
+      late: g.necesita_late_checkout ? 'Sí' : 'No',
+      hobbies: g.hobbies || '',
+      bebida: g.bebida_snack_preferido || '',
+      notasRec: g.notas_recepcion || '',
+      actPor: g.actualizado_por || '',
+      actEn: g.actualizado_en || ''
+    });
   });
-  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
-  downloadBlob(blob, `fichas_huespedes_${dateStamp()}.csv`);
-  toast('CSV descargado.');
+
+  const headerRow = sheet.getRow(1);
+  headerRow.eachCell(cell=>{
+    cell.font = { bold:true, color:{ argb:'FFFFFFFF' }, size:11 };
+    cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF122140' } };
+    cell.alignment = { vertical:'middle', horizontal:'left' };
+    cell.border = { bottom:{ style:'thin', color:{ argb:'FF0A1428' } } };
+  });
+  headerRow.height = 22;
+
+  sheet.eachRow((row, rowNumber)=>{
+    if(rowNumber===1) return;
+    row.eachCell(cell=>{
+      cell.alignment = { vertical:'top', wrapText:true };
+      cell.border = { bottom:{ style:'thin', color:{ argb:'FFE4E8F0' } } };
+      cell.font = { size:10.5 };
+    });
+    if(rowNumber % 2 === 0){
+      row.eachCell(cell=>{ cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFF6F8FB' } }; });
+    }
+  });
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  downloadBlob(blob, `fichas_huespedes_${dateStamp()}.xlsx`);
+  toast('Excel descargado.');
 }
 function downloadBlob(blob, filename){
   const url = URL.createObjectURL(blob);
@@ -1238,7 +1325,13 @@ $('#linkConfig').onclick = openConfig;
 $('#closeConfig').onclick = closeConfig;
 $('#btnSaveConfig').onclick = saveConfig;
 $('#btnDisconnect').onclick = disconnectSupabase;
-$('#btnExport').onclick = exportJson;
+$('#btnExport').onclick = (e) => {
+  e.stopPropagation();
+  $('#exportMenu').classList.toggle('open');
+};
+document.addEventListener('click', ()=> $('#exportMenu').classList.remove('open'));
+$('#exportExcelBtn').onclick = exportExcel;
+$('#exportJsonBtnMenu').onclick = exportJson;
 $('#btnExportBanner').onclick = exportJson;
 $('#btnImport').onclick = () => $('#fileInput').click();
 $('#fileInput').onchange = (e) => { if(e.target.files[0]) importJson(e.target.files[0]); e.target.value=''; };
@@ -1254,9 +1347,6 @@ $$('.tab-btn').forEach(btn=>{
     $('#tab-'+btn.dataset.tab).style.display='block';
   });
 });
-
-$('#btnExport').addEventListener('dblclick', exportCsv);
-$('#btnExport').title = 'Clic: exportar JSON  ·  Doble clic: exportar CSV';
 
 /* ---------- Init ---------- */
 (async function init(){
